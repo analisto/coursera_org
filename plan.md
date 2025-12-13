@@ -475,3 +475,5 @@ for epoch in range(start_epoch, epochs):
 * Preserve diacritics during all preprocessing and LM corpora. Evaluate with diacritics on.
 * Build small Azerbaijani corpus early; even 100k–1M tokens gives LM boost. Use news articles, open corpora.
 * Pay attention to names and domain lexicons (industry words for SOCAR). Add them to rescoring lexicon or use constrained decoding for fields (e.g., ID patterns).
+
+---
