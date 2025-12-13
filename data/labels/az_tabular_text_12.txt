@@ -1,0 +1,5 @@
+Adı        | Yaşı | Şöbə
+-------------------------
+Rauf       | 32   | Maliyyə
+Aysel      | 28   | İnsan resursları
+Kamal      | 41   | İT dəstəyi

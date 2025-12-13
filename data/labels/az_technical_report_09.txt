@@ -1,0 +1,4 @@
+Sistem performansının ilkin təhlili göstərirki,
+məlumatların emalı zamanı gecikmələr əsasən
+disk oxunuş sürəti ilə bağlıdır. CPU yüklənməsi
+orta hesabla 67% səviyyəsində müşahidə olunur.
