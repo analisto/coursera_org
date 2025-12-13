@@ -1,0 +1,17 @@
+{
+  "img_height": 256,
+  "batch_size": 2,
+  "num_epochs": 30,
+  "learning_rate": 0.001,
+  "weight_decay": 0.0001,
+  "embedding_dim": 256,
+  "num_heads": 8,
+  "num_encoder_layers": 4,
+  "dim_feedforward": 1024,
+  "dropout": 0.1,
+  "train_ratio": 0.7,
+  "val_ratio": 0.15,
+  "test_ratio": 0.15,
+  "seed": 42,
+  "device": "cpu"
+}

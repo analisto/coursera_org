@@ -1,0 +1,13 @@
+{
+  "final_train_loss": 0.0,
+  "final_val_loss": 0.0,
+  "final_train_cer": 0.9807125890736342,
+  "final_val_cer": 0.9871738168951791,
+  "best_val_loss": 0.0,
+  "best_epoch": 1,
+  "test_loss": 0.0,
+  "test_cer": 0.9865718799368088,
+  "training_time_seconds": 263.1015250682831,
+  "total_parameters": 7763474,
+  "trainable_parameters": 7763474
+}
