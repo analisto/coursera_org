@@ -1,0 +1,40 @@
+Azerbaijani HTR Training Summary
+================================================================================
+
+CONFIGURATION:
+  Architecture: CNN → Transformer → CTC
+  IMG_HEIGHT: 256
+  BATCH_SIZE: 2
+  Transformer: d_model=512, layers=6, heads=8
+  Total parameters: 23,459,538
+  Device: cpu
+
+DATASET:
+  Train samples: 8
+  Val samples: 1
+  Test samples: 3
+  Vocabulary size: 81
+  Classes (with CTC blank): 83
+
+TRAINING RESULTS:
+  Total epochs: 16
+  Best validation CER: 0.4693 (epoch 6)
+  Final train CER: 0.8953
+  Final val CER: 0.4929
+
+TEST SET PERFORMANCE:
+  Test Loss: 4.1959
+  Test CER: 0.6944
+  Test WER: 0.7500
+
+ARTIFACTS:
+  Best model: /Users/ismatsamadov/azeri_handwriting_detection/outputs/best_model.pt
+  Final model: /Users/ismatsamadov/azeri_handwriting_detection/outputs/final_model.pt
+  Vocabulary: /Users/ismatsamadov/azeri_handwriting_detection/outputs/vocabulary.json
+  Configuration: /Users/ismatsamadov/azeri_handwriting_detection/outputs/config.json
+  Training history: /Users/ismatsamadov/azeri_handwriting_detection/outputs/training_history.json
+  Test results: /Users/ismatsamadov/azeri_handwriting_detection/outputs/test_results.json
+  Training overview: /Users/ismatsamadov/azeri_handwriting_detection/charts/training/training_overview.png
+  Sample predictions: /Users/ismatsamadov/azeri_handwriting_detection/charts/predictions/sample_predictions.png
+
+================================================================================
