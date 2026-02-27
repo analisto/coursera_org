@@ -1,131 +1,61 @@
+"""
+Coursera full catalog scraper — uses the public REST API (no auth required).
+Fetches all ~19 000+ courses from api.coursera.org/api/courses.v1
+"""
+
 import csv
 import time
 import requests
+from pathlib import Path
 
-URL = "https://www.coursera.org/graphql-gateway?opname=Search"
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+API_URL   = "https://api.coursera.org/api/courses.v1"
+PAGE_SIZE = 100   # max allowed by the API
+
+FIELDS = ",".join([
+    "name",
+    "slug",
+    "description",
+    "partnerIds",
+    "domainTypes",
+    "primaryLanguages",
+    "workload",
+    "difficultyLevel",
+    "certificates",
+    "startDate",
+    "courseType",
+])
 
 HEADERS = {
-    "accept": "application/json",
-    "accept-language": "en",
-    "apollographql-client-name": "search-v2",
-    "content-type": "application/json",
-    "operation-name": "Search",
-    "origin": "https://www.coursera.org",
-    "referer": "https://www.coursera.org/search?query=*",
     "user-agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/145.0.0.0 Safari/537.36"
-    ),
-    "dnt": "1",
+    )
 }
-
-QUERY = """
-query Search($requests: [Search_Request!]!) {
-  SearchResult {
-    search(requests: $requests) {
-      ...SearchResult
-      __typename
-    }
-    __typename
-  }
-}
-
-fragment SearchResult on Search_Result {
-  elements {
-    ...SearchHit
-    __typename
-  }
-  facets {
-    id
-    values {
-      id
-      name
-      __typename
-    }
-    __typename
-  }
-  pagination {
-    cursor
-    totalElements
-    __typename
-  }
-  totalPages
-  __typename
-}
-
-fragment SearchHit on Search_Hit {
-  ...SearchProductHit
-  __typename
-}
-
-fragment SearchProductHit on Search_ProductHit {
-  id
-  name
-  url
-  partners
-  skills
-  productType
-  productDifficultyLevel
-  productDuration
-  avgProductRating
-  numProductRatings
-  isCourseFree
-  isPartOfCourseraPlus
-  isCreditEligible
-  isNewContent
-  tagline
-  __typename
-}
-"""
 
 CSV_FIELDS = [
     "id",
     "name",
+    "slug",
     "url",
-    "partners",
-    "skills",
-    "productType",
-    "productDifficultyLevel",
-    "productDuration",
-    "avgProductRating",
-    "numProductRatings",
-    "isCourseFree",
-    "isPartOfCourseraPlus",
-    "isCreditEligible",
-    "isNewContent",
-    "tagline",
+    "courseType",
+    "description",
+    "partnerIds",
+    "domainIds",
+    "subdomainIds",
+    "primaryLanguages",
+    "workload",
+    "difficultyLevel",
+    "certificates",
+    "startDate",
 ]
 
-PAGE_SIZE = 24
-
-
-def build_payload(cursor: str, facet_filters: list[dict] | None = None) -> list[dict]:
-    return [
-        {
-            "operationName": "Search",
-            "variables": {
-                "requests": [
-                    {
-                        "entityType": "PRODUCTS",
-                        "limit": PAGE_SIZE,
-                        "facets": ["topic", "productDifficultyLevel", "productDuration",
-                                   "productTypeDescription", "partners", "language",
-                                   "isPartOfCourseraPlus"],
-                        "sortBy": "BEST_MATCH",
-                        "enableAutoAppliedFilters": False,
-                        "requestOrigin": {"pageType": "SERP", "segmentType": "CONSUMER"},
-                        "maxValuesPerFacet": 1000,
-                        "facetFilters": facet_filters or [],
-                        "cursor": cursor,
-                        "query": "*",
-                    }
-                ]
-            },
-            "query": QUERY,
-        }
-    ]
-
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def safe_join(value) -> str:
     if isinstance(value, list):
@@ -133,111 +63,93 @@ def safe_join(value) -> str:
     return str(value) if value is not None else ""
 
 
-def parse_response(data: list | dict) -> tuple[list[dict], list[dict], str | None, int]:
-    result_block = data[0] if isinstance(data, list) else data
-    search_list = (
-        result_block
-        .get("data", {})
-        .get("SearchResult", {})
-        .get("search", [{}])
-    )
-    search = search_list[0] if search_list else {}
-
-    elements = search.get("elements", [])
-    facets = search.get("facets", [])
-    pagination = search.get("pagination", {})
-    total = pagination.get("totalElements", 0)
-    next_cursor = pagination.get("cursor")
-
-    products = [el for el in elements if el.get("__typename") == "Search_ProductHit"]
-    return products, facets, next_cursor, total
-
-
-def fetch(session: requests.Session, cursor: str, facet_filters=None):
-    payload = build_payload(cursor, facet_filters)
-    resp = session.post(URL, json=payload, timeout=30)
-    resp.raise_for_status()
-    return parse_response(resp.json())
+def flatten(course: dict) -> dict:
+    domain_types = course.get("domainTypes", [])
+    domain_ids    = [d.get("domainId", "")    for d in domain_types]
+    subdomain_ids = [d.get("subdomainId", "") for d in domain_types]
+    slug = course.get("slug", "")
+    return {
+        "id":              course.get("id", ""),
+        "name":            course.get("name", ""),
+        "slug":            slug,
+        "url":             f"https://www.coursera.org/learn/{slug}" if slug else "",
+        "courseType":      course.get("courseType", ""),
+        "description":     course.get("description", "").replace("\n", " ").replace("\r", ""),
+        "partnerIds":      safe_join(course.get("partnerIds", [])),
+        "domainIds":       safe_join(domain_ids),
+        "subdomainIds":    safe_join(subdomain_ids),
+        "primaryLanguages":safe_join(course.get("primaryLanguages", [])),
+        "workload":        course.get("workload", ""),
+        "difficultyLevel": course.get("difficultyLevel", ""),
+        "certificates":    safe_join(course.get("certificates", [])),
+        "startDate":       course.get("startDate", ""),
+    }
 
 
-def get_topics(session: requests.Session) -> list[dict]:
-    """Return list of {id, name} topic facet values from an initial request."""
-    _, facets, _, _ = fetch(session, "0")
-    for facet in facets:
-        if facet.get("id") == "topic":
-            return facet.get("values", [])
-    return []
-
-
-def scrape_topic(session, topic_id: str, topic_name: str, seen: set, writer) -> int:
-    facet_filters = [{"facetName": "topic", "multiSelectFacetValues": [topic_id]}]
-    cursor = "0"
-    written = 0
-
-    while True:
-        try:
-            products, _, next_cursor, total = fetch(session, cursor, facet_filters)
-        except requests.HTTPError as exc:
-            print(f"  HTTP error: {exc}")
-            break
-        except Exception as exc:
-            print(f"  Error: {exc}")
-            break
-
-        new = [p for p in products if p["id"] not in seen]
-        for hit in new:
-            seen.add(hit["id"])
-            row = {field: safe_join(hit.get(field)) for field in CSV_FIELDS}
-            if row["url"] and not row["url"].startswith("http"):
-                row["url"] = "https://www.coursera.org" + row["url"]
-            writer.writerow(row)
-        written += len(new)
-
-        if not products:
-            break
-
-        print(
-            f"  [{topic_name}] cursor={cursor} → "
-            f"{len(products)} products ({len(new)} new), total={total}"
-        )
-
-        if not next_cursor or next_cursor == cursor:
-            break
-        cursor = next_cursor
-        time.sleep(0.4)
-
-    return written
-
+# ---------------------------------------------------------------------------
+# Scraper
+# ---------------------------------------------------------------------------
 
 def scrape(output_path: str) -> None:
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    print("Fetching topic list...")
-    topics = get_topics(session)
-    print(f"Found {len(topics)} topics.\n")
-
-    seen: set[str] = set()
+    start = 0
     total_written = 0
+    grand_total   = None
 
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
         writer.writeheader()
 
-        for i, topic in enumerate(topics, 1):
-            tid = topic.get("id", "")
-            tname = topic.get("name", tid)
-            print(f"[{i}/{len(topics)}] Topic: {tname}")
-            n = scrape_topic(session, tid, tname, seen, writer)
-            total_written += n
-            print(f"  → {n} new rows (running total: {total_written})\n")
-            time.sleep(0.3)
+        while True:
+            params = {
+                "start":  start,
+                "limit":  PAGE_SIZE,
+                "fields": FIELDS,
+            }
+            try:
+                resp = session.get(API_URL, params=params, timeout=30)
+                resp.raise_for_status()
+            except requests.HTTPError as exc:
+                print(f"\nHTTP error {exc.response.status_code} at start={start}. Stopping.")
+                break
+            except Exception as exc:
+                print(f"\nError: {exc}. Stopping.")
+                break
 
-    print(f"Done. Saved {total_written} unique rows to {output_path}")
+            data = resp.json()
+            paging   = data.get("paging", {})
+            elements = data.get("elements", [])
+
+            if grand_total is None:
+                grand_total = paging.get("total", "?")
+                print(f"Total courses reported by API: {grand_total}\n")
+
+            if not elements:
+                print("No more elements. Done.")
+                break
+
+            for course in elements:
+                writer.writerow(flatten(course))
+
+            total_written += len(elements)
+            next_start = paging.get("next")
+            print(
+                f"  start={start:6d}  got={len(elements):3d}  "
+                f"total so far={total_written}/{grand_total}"
+            )
+
+            if not next_start:
+                print("Reached last page. Done.")
+                break
+
+            start = int(next_start)
+            time.sleep(0.25)
+
+    print(f"\nSaved {total_written} rows to {output_path}")
 
 
 if __name__ == "__main__":
-    import os
-    out = os.path.join(os.path.dirname(__file__), "..", "data", "coursera.csv")
-    out = os.path.normpath(out)
-    scrape(out)
+    out = Path(__file__).parent.parent / "data" / "coursera.csv"
+    scrape(str(out))
